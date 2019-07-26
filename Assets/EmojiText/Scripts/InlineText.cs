@@ -14,7 +14,7 @@ namespace EmojiText.Taurus
 	{
 		#region 属性
 		// 用正则取  [图集ID#表情Tag] ID值==-1 ,表示为超链接
-		private static readonly Regex _inputTagRegex = new Regex(@"\[(\-{0,1}\d{0,})#(.+?)\]", RegexOptions.Singleline);
+		private static readonly Regex _inputTagRegex = new Regex(@"\[(\-{0,1}\d{0,})#(.+?)(:{1}(.+?))?\]", RegexOptions.Singleline);
 		//文本表情管理器
 		private InlineManager _inlineManager;
 
@@ -87,7 +87,14 @@ namespace EmojiText.Taurus
 			alignByGeometry = true;
 			if(_inlineManager==null)
 				_inlineManager = GetComponentInParent<InlineManager>();
+            UpdateDrawSprite(true);
 		}
+
+        protected override void OnDisable()
+		{
+			base.OnDisable();
+            UpdateDrawSprite(false);
+         }
 
 		protected override void Start()
 		{
@@ -114,7 +121,7 @@ namespace EmojiText.Taurus
 			m_DisableFontTextureRebuiltCallback = false;
 
 			//更新表情绘制
-			UpdateDrawSprite();
+			UpdateDrawSprite(true);
 		}
 
 		// 重写文本所占的长宽
@@ -154,7 +161,7 @@ namespace EmojiText.Taurus
 				{
 					if (boxes[i].Contains(lp))
 					{
-						OnHrefClick.Invoke(hrefInfo.Name, hrefInfo.Id);
+						OnHrefClick.Invoke(hrefInfo.HrefValue, hrefInfo.Id);
 						return;
 					}
 				}
@@ -198,6 +205,7 @@ namespace EmojiText.Taurus
 					hrefInfo.StartIndex = startIndex;// 超链接里的文本起始顶点索引
 					hrefInfo.EndIndex = endIndex;
 					hrefInfo.Name = match.Groups[2].Value;
+					hrefInfo.HrefValue = match.Groups[3].Value;
 					_listHrefInfos.Add(hrefInfo);
 
 				}
@@ -326,14 +334,14 @@ namespace EmojiText.Taurus
 
 		}
 		//表情绘制
-		private void UpdateDrawSprite()
+		private void UpdateDrawSprite(bool visable)
 		{
 			//记录之前的信息
 			if ((_spriteInfo == null || _spriteInfo.Count == 0) && _lastRenderIndexs.Count > 0)
 			{
 				for (int i = 0; i < _lastRenderIndexs.Count; i++)
 				{
-					_inlineManager.UpdateTextInfo(this, _lastRenderIndexs[i], null);
+					_inlineManager.UpdateTextInfo(this, _lastRenderIndexs[i], null, visable);
 				}
 				_lastRenderIndexs.Clear();
 			}
@@ -345,7 +353,7 @@ namespace EmojiText.Taurus
 					//添加渲染id索引
 					if (!_lastRenderIndexs.Contains(_spriteInfo[i].Id))
 					{
-						_inlineManager.UpdateTextInfo(this, _spriteInfo[i].Id, _spriteInfo.FindAll(x => x.Id == _spriteInfo[i].Id));
+						_inlineManager.UpdateTextInfo(this, _spriteInfo[i].Id, _spriteInfo.FindAll(x => x.Id == _spriteInfo[i].Id), visable);
 						_lastRenderIndexs.Add(_spriteInfo[i].Id);
 					}
 				}
@@ -396,7 +404,7 @@ namespace EmojiText.Taurus
 			Vector2 pivot = GetTextAnchorPivot(alignment);
 			Rect rect = new Rect();
 			Vector2 size = rectTransform.sizeDelta - new Vector2(preferredWidth, preferredHeight);
-			rect.position = pivot * size - rectTransform.sizeDelta *(rectTransform.pivot);
+            rect.position = new Vector2(pivot.x * size.x, pivot.y * size.y) - new Vector2(rectTransform.sizeDelta.x* rectTransform.pivot.x, rectTransform.sizeDelta.y * rectTransform.pivot.y);
 			rect.width = preferredWidth;
 			rect.height = preferredHeight;
 			_textWolrdVertexs[0] = Utility.TransformPoint2World(transform,new Vector3(rect.x, rect.y));
@@ -493,6 +501,10 @@ namespace EmojiText.Taurus
 		/// 名称
 		/// </summary>
 		public string Name;
+		/// <summary>
+		/// 超链接的值
+		/// </summary>
+		public string HrefValue;
 		/// <summary>
 		/// 碰撞盒范围
 		/// </summary>
